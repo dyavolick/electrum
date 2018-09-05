@@ -15,6 +15,7 @@ import concurrent.futures
 from .bitcoin import COIN
 from .i18n import _
 from .util import PrintError, ThreadJob, make_dir, aiosafe
+from .util import make_aiohttp_session
 
 
 # See https://en.wikipedia.org/wiki/ISO_4217
@@ -35,32 +36,17 @@ class ExchangeBase(PrintError):
         self.on_quotes = on_quotes
         self.on_history = on_history
 
-    def make_session(self):
-        global PROXY
-        if PROXY:
-            connector = SocksConnector(
-                socks_ver=SocksVer.SOCKS5 if PROXY['mode'] == 'socks5' else SocksVer.SOCKS4,
-                host=PROXY['host'],
-                port=int(PROXY['port']),
-                username=PROXY.get('user', None),
-                password=PROXY.get('password', None),
-                rdns=True
-            )
-            return aiohttp.ClientSession(headers={'User-Agent' : 'Electrum'}, timeout=aiohttp.ClientTimeout(total=10), connector=connector)
-        else:
-            return aiohttp.ClientSession(headers={'User-Agent' : 'Electrum'}, timeout=aiohttp.ClientTimeout(total=10))
-
     async def get_raw(self, site, get_string):
         # APIs must have https
         url = ''.join(['https://', site, get_string])
-        async with self.make_session() as session:
+        async with make_aiohttp_session(PROXY) as session:
             async with session.get(url) as response:
                 return await response.text()
 
     async def get_json(self, site, get_string):
         # APIs must have https
         url = ''.join(['https://', site, get_string])
-        async with self.make_session() as session:
+        async with make_aiohttp_session(PROXY) as session:
             async with session.get(url) as response:
                 return await response.json()
 

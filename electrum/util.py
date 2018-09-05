@@ -37,6 +37,8 @@ from locale import localeconv
 
 from .i18n import _
 
+import aiohttp
+from aiohttp_socks import SocksConnector, SocksVer
 
 from aiorpcx import ClientSession, Notification
 import urllib.request, urllib.parse, urllib.error
@@ -967,3 +969,17 @@ class NotificationSession(ClientSession):
                 await self.header.put(deser)
             else:
                 assert False, request.method
+
+def make_aiohttp_session(proxy):
+    if proxy:
+        connector = SocksConnector(
+            socks_ver=SocksVer.SOCKS5 if proxy['mode'] == 'socks5' else SocksVer.SOCKS4,
+            host=proxy['host'],
+            port=int(proxy['port']),
+            username=proxy.get('user', None),
+            password=proxy.get('password', None),
+            rdns=True
+        )
+        return aiohttp.ClientSession(headers={'User-Agent' : 'Electrum'}, timeout=aiohttp.ClientTimeout(total=10), connector=connector)
+    else:
+        return aiohttp.ClientSession(headers={'User-Agent' : 'Electrum'}, timeout=aiohttp.ClientTimeout(total=10))
