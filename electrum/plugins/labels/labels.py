@@ -12,14 +12,13 @@ from electrum.crypto import aes_encrypt_with_iv, aes_decrypt_with_iv
 from electrum.i18n import _
 from electrum.util import aiosafe, make_aiohttp_session
 
-PROXY = None
-
 class LabelsPlugin(BasePlugin):
 
     def __init__(self, parent, config, name):
         BasePlugin.__init__(self, parent, config, name)
         self.target_host = 'labels.electrum.org'
         self.wallets = {}
+        self.proxy = None
 
     def encode(self, wallet, msg):
         password, iv, wallet_id = self.wallets[wallet]
@@ -66,13 +65,13 @@ class LabelsPlugin(BasePlugin):
 
     async def do_get(self, url = "/labels"):
         url = 'https://' + self.target_host + url
-        async with make_aiohttp_session(PROXY) as session:
+        async with make_aiohttp_session(self.proxy) as session:
             async with session.get(url) as result:
                 return await result.json()
 
     async def do_post(self, url = "/labels", data=None):
         url = 'https://' + self.target_host + url
-        async with make_aiohttp_session(PROXY) as session:
+        async with make_aiohttp_session(self.proxy) as session:
             async with session.post(url, data=data) as result:
                 return await result.json()
 
@@ -154,6 +153,7 @@ class LabelsPlugin(BasePlugin):
         self.wallets[wallet] = (password, iv, wallet_id)
         # If there is an auth token we can try to actually start syncing
         asyncio.get_event_loop().create_task(self.pull_safe_thread(wallet, False))
+        self.proxy = wallet.network.proxy
         wallet.network.register_callback(self.set_proxy, ['proxy_set'])
 
     def stop_wallet(self, wallet):
@@ -161,6 +161,5 @@ class LabelsPlugin(BasePlugin):
         self.wallets.pop(wallet, None)
 
     def set_proxy(self, evt_name, new_proxy):
-        global PROXY
-        PROXY = new_proxy
+        self.proxy = new_proxy
         self.print_error("proxy set")
